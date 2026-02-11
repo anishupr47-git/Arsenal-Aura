@@ -12,6 +12,9 @@ export default function Predictor() {
   const [awayScore, setAwayScore] = useState(1);
   const [result, setResult] = useState(null);
   const [matchError, setMatchError] = useState("");
+  const kickoffMs = match?.utcDate ? new Date(match.utcDate).getTime() : null;
+  const kickoffPassed = kickoffMs ? kickoffMs <= Date.now() : false;
+  const canPredict = Boolean(match && match.opponent && match.utcDate && !kickoffPassed);
 
   useEffect(() => {
     const load = async () => {
@@ -39,7 +42,10 @@ export default function Predictor() {
   }, [accessToken]);
 
   const savePrediction = async () => {
-    if (!match) return;
+    if (!canPredict) {
+      addToast("Match data unavailable. Try again later.", "error");
+      return;
+    }
     try {
       const payload = {
         match_id: match.match_id,
@@ -131,9 +137,12 @@ export default function Predictor() {
               </div>
               <button
                 onClick={savePrediction}
-                className="mt-6 w-full bg-arsenal-red text-white py-2 rounded-lg font-semibold"
+                disabled={!canPredict}
+                className={`mt-6 w-full py-2 rounded-lg font-semibold ${
+                  canPredict ? "bg-arsenal-red text-white" : "bg-gray-200 text-gray-500"
+                }`}
               >
-                Save Prediction
+                {kickoffPassed ? "Predictions Closed" : "Save Prediction"}
               </button>
             </>
           ) : matchError ? (
