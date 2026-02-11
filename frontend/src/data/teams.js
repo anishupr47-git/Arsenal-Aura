@@ -1,0 +1,22 @@
+export const premierLeagueTeams = [
+  "Arsenal",
+  "Aston Villa",
+  "AFC Bournemouth",
+  "Brentford",
+  "Brighton & Hove Albion",
+  "Burnley",
+  "Chelsea",
+  "Crystal Palace",
+  "Everton",
+  "Fulham",
+  "Leeds United",
+  "Liverpool",
+  "Manchester City",
+  "Manchester United",
+  "Newcastle United",
+  "Nottingham Forest",
+  "Sunderland",
+  "Tottenham Hotspur",
+  "West Ham United",
+  "Wolverhampton Wanderers"
+];
