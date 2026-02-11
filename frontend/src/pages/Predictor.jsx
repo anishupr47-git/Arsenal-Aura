@@ -17,8 +17,13 @@ export default function Predictor() {
     const load = async () => {
       try {
         const next = await apiFetch("/api/fixtures/next", { method: "GET" }, accessToken);
-        setMatch(next);
-        setMatchError("");
+        if (next?.unavailable) {
+          setMatch(null);
+          setMatchError(next.detail || "Match data unavailable.");
+        } else {
+          setMatch(next);
+          setMatchError("");
+        }
         const latest = await apiFetch("/api/predictions/latest", { method: "GET" }, accessToken);
         if (latest?.id) {
           setPrediction(latest);

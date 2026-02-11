@@ -196,7 +196,9 @@ class NextFixtureView(APIView):
     def get(self, request):
         data = get_next_match()
         if data.get("error"):
-            return Response({"detail": data["error"]}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response({"unavailable": True, "detail": data["error"]})
+        if not data.get("match_id"):
+            return Response({"unavailable": True, "detail": "Match data unavailable."})
         home_team = data.get("homeTeam")
         away_team = data.get("awayTeam")
         home_badge = get_team_badge(home_team)
