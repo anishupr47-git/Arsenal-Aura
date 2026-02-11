@@ -197,24 +197,33 @@ class NextFixtureView(APIView):
         data = get_next_match()
         if data.get("error"):
             return Response({"unavailable": True, "detail": data["error"]})
-        if not data.get("match_id"):
-            return Response({"unavailable": True, "detail": "Match data unavailable."})
         home_team = data.get("homeTeam")
         away_team = data.get("awayTeam")
+        utc_date = data.get("utcDate")
+        if not data.get("match_id") or not home_team or not away_team or not utc_date:
+            return Response({"unavailable": True, "detail": "Match data incomplete."})
+
+        def is_arsenal(name):
+            return name and "Arsenal" in name
+
+        arsenal_is_home = is_arsenal(home_team)
+        opponent = away_team if arsenal_is_home else home_team
+        if is_arsenal(opponent):
+            return Response({"unavailable": True, "detail": "Opponent data unavailable."})
         home_badge = get_team_badge(home_team)
         away_badge = get_team_badge(away_team)
         return Response(
             {
                 "match_id": data.get("match_id"),
-                "utcDate": data.get("utcDate"),
+                "utcDate": utc_date,
                 "competition": data.get("competition"),
                 "homeTeam": home_team,
                 "awayTeam": away_team,
                 "homeBadge": home_badge,
                 "awayBadge": away_badge,
                 "status": data.get("status"),
-                "arsenal_is_home": home_team == "Arsenal FC",
-                "opponent": away_team if home_team == "Arsenal FC" else home_team,
+                "arsenal_is_home": arsenal_is_home,
+                "opponent": opponent,
                 "stale": data.get("stale", False),
             }
         )

@@ -17,9 +17,9 @@ export default function Predictor() {
     const load = async () => {
       try {
         const next = await apiFetch("/api/fixtures/next", { method: "GET" }, accessToken);
-        if (next?.unavailable) {
+        if (next?.unavailable || !next?.utcDate || !next?.opponent) {
           setMatch(null);
-          setMatchError(next.detail || "Match data unavailable.");
+          setMatchError(next?.detail || "Match data unavailable.");
         } else {
           setMatch(next);
           setMatchError("");
@@ -82,7 +82,7 @@ export default function Predictor() {
               <div className="text-center">
                 <div className="text-lg font-semibold">{match.competition}</div>
                 <div className="text-sm text-gray-600">
-                  {new Date(match.utcDate).toLocaleString()}
+                  {match.utcDate ? new Date(match.utcDate).toLocaleString() : "Date TBD"}
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 items-center text-center gap-3">
