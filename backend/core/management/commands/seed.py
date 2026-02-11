@@ -358,16 +358,20 @@ class Command(BaseCommand):
             "Top shelf only.",
         ]
 
+        def ensure_fragment(category, text, weight):
+            if not Fragment.objects.filter(category=category, text=text).exists():
+                Fragment.objects.create(category=category, text=text, weight=weight)
+
         for text in openers:
-            Fragment.objects.get_or_create(category="opener", text=text, defaults={"weight": 2})
+            ensure_fragment("opener", text, 2)
         for text in praise_fragments:
-            Fragment.objects.get_or_create(category="praise", text=text, defaults={"weight": 1})
+            ensure_fragment("praise", text, 1)
         for text in tactical_fragments:
-            Fragment.objects.get_or_create(category="tactical", text=text, defaults={"weight": 1})
+            ensure_fragment("tactical", text, 1)
         for text in nostalgia_fragments:
-            Fragment.objects.get_or_create(category="nostalgia", text=text, defaults={"weight": 2})
+            ensure_fragment("nostalgia", text, 2)
         for text in closers:
-            Fragment.objects.get_or_create(category="closer", text=text, defaults={"weight": 2})
+            ensure_fragment("closer", text, 2)
         Fragment.objects.filter(category="emoji").delete()
 
         if PreGeneratedLine.objects.count() < 10000:
