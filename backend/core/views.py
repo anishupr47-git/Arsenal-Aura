@@ -213,6 +213,7 @@ class NextFixtureView(APIView):
                 "status": data.get("status"),
                 "arsenal_is_home": home_team == "Arsenal FC",
                 "opponent": away_team if home_team == "Arsenal FC" else home_team,
+                "stale": data.get("stale", False),
             }
         )
 
@@ -359,6 +360,14 @@ class HonorsView(APIView):
 
     def get(self, request):
         honors = Honor.objects.all()
+        if not honors.exists():
+            return Response(
+                [
+                    {"id": 1, "title": "League Titles", "count": "13x", "subtitle": "Top-flight Champions"},
+                    {"id": 2, "title": "FA Cup Trophies", "count": "14x", "subtitle": "Record Winners"},
+                    {"id": 3, "title": "The Invincibles", "count": "2003/04", "subtitle": "Unbeaten League Season"},
+                ]
+            )
         return Response(HonorSerializer(honors, many=True).data)
 
 
@@ -367,6 +376,16 @@ class TimelineView(APIView):
 
     def get(self, request):
         items = TimelineItem.objects.all()
+        if not items.exists():
+            return Response(
+                [
+                    {"id": 1, "title": "Woolwich Origins", "period": "1886", "description": "Founded in Woolwich and built from humble roots."},
+                    {"id": 2, "title": "Highbury Era", "period": "1913–2006", "description": "A historic home that shaped the club's identity."},
+                    {"id": 3, "title": "Emirates Stadium", "period": "2006–Present", "description": "Modern home with elite ambitions."},
+                    {"id": 4, "title": "Wenger Era", "period": "1996–2018", "description": "Style, trophies, and a global football legacy."},
+                    {"id": 5, "title": "Arteta Era", "period": "2019–Present", "description": "Control, youth, and a new Arsenal standard."},
+                ]
+            )
         return Response(TimelineSerializer(items, many=True).data)
 
 
@@ -375,6 +394,15 @@ class InfoLinksView(APIView):
 
     def get(self, request):
         links = InfoLink.objects.all()
+        if not links.exists():
+            return Response(
+                [
+                    {"id": 1, "title": "Arsenal Official Website", "url": "https://www.arsenal.com/"},
+                    {"id": 2, "title": "Arsenal on BBC Sport", "url": "https://www.bbc.com/sport/football/teams/arsenal"},
+                    {"id": 3, "title": "Arsenal on Sky Sports", "url": "https://www.skysports.com/arsenal"},
+                    {"id": 4, "title": "Arsenal Fixtures and Results", "url": "https://www.premierleague.com/clubs/1/Arsenal/fixtures"},
+                ]
+            )
         return Response(InfoLinkSerializer(links, many=True).data)
 
 

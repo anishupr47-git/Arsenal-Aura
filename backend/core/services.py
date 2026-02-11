@@ -16,9 +16,12 @@ def clean_text(text):
     return " ".join(cleaned.split())
 
 
-def get_cached_value(cache_key):
+def get_cached_value(cache_key, allow_expired=False):
     now = timezone.now()
-    cached = FixturesCache.objects.filter(cache_key=cache_key, expires_at__gt=now).order_by("-expires_at").first()
+    qs = FixturesCache.objects.filter(cache_key=cache_key)
+    if not allow_expired:
+        qs = qs.filter(expires_at__gt=now)
+    cached = qs.order_by("-expires_at").first()
     if cached:
         return cached.payload
     return None
@@ -85,6 +88,9 @@ def get_arsenal_team_id():
         return cached.get("team_id")
     data = fetch_football_data("/competitions/PL/teams")
     if data.get("error"):
+        stale = get_cached_value(cache_key, allow_expired=True)
+        if stale:
+            return stale.get("team_id")
         return None
     teams = data.get("teams", [])
     arsenal = next((t for t in teams if t.get("name") == "Arsenal FC"), None)
@@ -99,15 +105,24 @@ def get_next_match():
     cache_key = "arsenal_next_match"
     cached = get_cached_value(cache_key)
     if cached:
-        return cached
+        return {**cached, "stale": False}
     team_id = get_arsenal_team_id()
     if not team_id:
+        stale = get_cached_value(cache_key, allow_expired=True)
+        if stale:
+            return {**stale, "stale": True}
         return {"error": "Could not find Arsenal team id"}
     data = fetch_football_data(f"/teams/{team_id}/matches", params={"status": "SCHEDULED", "limit": 10})
     if data.get("error"):
+        stale = get_cached_value(cache_key, allow_expired=True)
+        if stale:
+            return {**stale, "stale": True}
         return data
     matches = data.get("matches", [])
     if not matches:
+        stale = get_cached_value(cache_key, allow_expired=True)
+        if stale:
+            return {**stale, "stale": True}
         return {"error": "No scheduled matches found"}
     matches_sorted = sorted(matches, key=lambda m: m.get("utcDate") or "")
     match = matches_sorted[0]
@@ -120,7 +135,7 @@ def get_next_match():
         "status": match.get("status"),
     }
     set_cache_value(cache_key, payload, settings.CACHE_TTL_MINUTES, match_id=str(match.get("id", "")))
-    return payload
+    return {**payload, "stale": False}
 
 
 def get_match_result(match_id):

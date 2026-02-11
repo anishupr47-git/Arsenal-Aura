@@ -11,12 +11,14 @@ export default function Predictor() {
   const [homeScore, setHomeScore] = useState(2);
   const [awayScore, setAwayScore] = useState(1);
   const [result, setResult] = useState(null);
+  const [matchError, setMatchError] = useState("");
 
   useEffect(() => {
     const load = async () => {
       try {
         const next = await apiFetch("/api/fixtures/next", { method: "GET" }, accessToken);
         setMatch(next);
+        setMatchError("");
         const latest = await apiFetch("/api/predictions/latest", { method: "GET" }, accessToken);
         if (latest?.id) {
           setPrediction(latest);
@@ -24,6 +26,7 @@ export default function Predictor() {
           setAwayScore(latest.predicted_away);
         }
       } catch (e) {
+        setMatchError(e.message || "Unable to load match data.");
         addToast(e.message, "error");
       }
     };
@@ -102,6 +105,7 @@ export default function Predictor() {
               </div>
               <div className="text-xs text-gray-600 text-center mt-2">
                 {match.arsenal_is_home ? "Arsenal at home" : "Arsenal away"}
+                {match.stale && " • Showing last cached match"}
               </div>
               <div className="mt-6 flex items-center justify-center gap-4">
                 <input
@@ -127,6 +131,8 @@ export default function Predictor() {
                 Save Prediction
               </button>
             </>
+          ) : matchError ? (
+            <div className="text-center text-red-600 text-sm">{matchError}</div>
           ) : (
             <div className="text-center text-gray-600">Loading next match...</div>
           )}
