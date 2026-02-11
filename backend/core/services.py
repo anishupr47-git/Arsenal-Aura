@@ -41,9 +41,12 @@ def fetch_football_data(path, params=None):
     if not settings.FOOTBALL_DATA_API_KEY:
         return {"error": "Missing API key"}
     url = f"https://api.football-data.org/v4{path}"
-    headers = {"X-Auth-Token": settings.FOOTBALL_DATA_API_KEY}
+    headers = {
+        "X-Auth-Token": settings.FOOTBALL_DATA_API_KEY,
+        "User-Agent": "ArsenalAura/1.0 (+https://arsenalaura.vercel.app/)",
+    }
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response = requests.get(url, headers=headers, params=params, timeout=10)
         if response.status_code >= 400:
             return {"error": "Upstream error", "status": response.status_code, "body": response.text}
         return response.json()
