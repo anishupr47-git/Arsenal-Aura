@@ -112,9 +112,14 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS"
 if DEBUG and not CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGIN_REGEXES = []
+if os.environ.get("ALLOW_VERCEL_PREVIEWS", "").lower() == "true":
+    CORS_ALLOWED_ORIGIN_REGEXES.append(r"^https://arsenalaura-.*\.vercel\.app$")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 if DEBUG and not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+if os.environ.get("ALLOW_VERCEL_PREVIEWS", "").lower() == "true":
+    CSRF_TRUSTED_ORIGINS.append("https://*.vercel.app")
 
 FOOTBALL_DATA_API_KEY = os.environ.get("FOOTBALL_DATA_API_KEY", "")
 SPORTS_DB_API_KEY = os.environ.get("SPORTS_DB_API_KEY", "")
