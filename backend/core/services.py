@@ -55,13 +55,16 @@ def fetch_football_data(path, params=None):
         "X-Auth-Token": settings.FOOTBALL_DATA_API_KEY,
         "User-Agent": "ArsenalAura/1.0 (+https://arsenalaura.vercel.app/)",
     }
-    try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code >= 400:
-            return {"error": "Upstream error", "status": response.status_code, "body": response.text}
-        return response.json()
-    except requests.RequestException:
-        return {"error": "Network error"}
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=20)
+            if response.status_code >= 400:
+                return {"error": "Upstream error", "status": response.status_code, "body": response.text}
+            return response.json()
+        except requests.RequestException as exc:
+            last_error = exc
+    return {"error": "Network error"}
 
 
 def fetch_sportsdb(path, params=None):
