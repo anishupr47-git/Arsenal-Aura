@@ -47,21 +47,46 @@ def is_complete_match_payload(payload):
     return True
 
 
-def fetch_football_data(path, params=None):
-    if not settings.FOOTBALL_DATA_API_KEY:
+def fetch_api_football(path, params=None):
+    if not settings.API_FOOTBALL_KEY:
         return {"error": "Missing API key"}
-    url = f"https://api.football-data.org/v4{path}"
+    base_url = settings.API_FOOTBALL_BASE_URL.rstrip("/")
+    url = f"{base_url}{path}"
     headers = {
-        "X-Auth-Token": settings.FOOTBALL_DATA_API_KEY,
+        "x-apisports-key": settings.API_FOOTBALL_KEY,
         "User-Agent": "ArsenalAura/1.0 (+https://arsenalaura.vercel.app/)",
     }
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
+        response = requests.get(url, headers=headers, params=params, timeout=15)
         if response.status_code >= 400:
             return {"error": "Upstream error", "status": response.status_code, "body": response.text}
-        return response.json()
+        data = response.json()
+        if data.get("errors"):
+            return {"error": "Upstream error", "body": data.get("errors")}
+        return data
     except requests.RequestException:
         return {"error": "Network error"}
+
+
+def map_api_football_status(short_code):
+    if not short_code:
+        return "SCHEDULED"
+    finished = {"FT", "AET", "PEN"}
+    scheduled = {"NS", "TBD"}
+    postponed = {"PST"}
+    in_play = {"1H", "2H", "HT", "ET", "BT", "INT"}
+    cancelled = {"CANC", "ABD", "SUSP"}
+    if short_code in finished:
+        return "FINISHED"
+    if short_code in scheduled:
+        return "SCHEDULED"
+    if short_code in postponed:
+        return "POSTPONED"
+    if short_code in in_play:
+        return "IN_PLAY"
+    if short_code in cancelled:
+        return "CANCELLED"
+    return short_code
 
 
 def fetch_sportsdb(path, params=None):
@@ -106,23 +131,20 @@ def get_arsenal_team_id():
             return team_id
         except ValueError:
             pass
-    data = fetch_football_data("/competitions/PL/teams")
+    data = fetch_api_football("/teams", params={"search": "Arsenal"})
     if data.get("error"):
         stale = get_cached_value(cache_key, allow_expired=True)
         if stale:
             return stale.get("team_id")
         return None
-    teams = data.get("teams", [])
-    arsenal = next(
-        (
-            t
-            for t in teams
-            if t.get("name") == "Arsenal FC"
-            or (t.get("name") and "Arsenal" in t.get("name"))
-            or t.get("shortName") == "Arsenal"
-        ),
-        None,
-    )
+    teams = data.get("response", [])
+    arsenal = None
+    for entry in teams:
+        team = entry.get("team") or {}
+        name = team.get("name") or ""
+        if name == "Arsenal" or "Arsenal" in name:
+            arsenal = team
+            break
     if not arsenal:
         return None
     team_id = arsenal.get("id")
@@ -141,42 +163,61 @@ def get_next_match():
         if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return {"error": "Could not find Arsenal team id"}
-    data = fetch_football_data(f"/teams/{team_id}/matches", params={"status": "SCHEDULED", "limit": 10})
+    now = timezone.now()
+    season = now.year if now.month >= 7 else now.year - 1
+    attempts = [
+        {"team": team_id, "next": 10},
+        {"team": team_id, "status": "NS"},
+        {"team": team_id, "status": "NS", "season": season},
+    ]
+    data = None
+    for params in attempts:
+        data = fetch_api_football("/fixtures", params=params)
+        if not data.get("error"):
+            break
     if data.get("error"):
         stale = get_cached_value(cache_key, allow_expired=True)
         if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return data
-    matches = data.get("matches", [])
+    matches = data.get("response", [])
     if not matches:
         stale = get_cached_value(cache_key, allow_expired=True)
         if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return {"error": "No scheduled matches found"}
-    matches_sorted = sorted(matches, key=lambda m: m.get("utcDate") or "")
+    matches_sorted = sorted(
+        matches,
+        key=lambda m: (m.get("fixture") or {}).get("date") or "",
+    )
     match = None
     for candidate in matches_sorted:
-        if candidate.get("id") and candidate.get("utcDate"):
-            home_name = candidate.get("homeTeam", {}).get("name")
-            away_name = candidate.get("awayTeam", {}).get("name")
-            if home_name and away_name:
-                match = candidate
-                break
+        fixture = candidate.get("fixture") or {}
+        teams = candidate.get("teams") or {}
+        home = (teams.get("home") or {}).get("name")
+        away = (teams.get("away") or {}).get("name")
+        if fixture.get("id") and fixture.get("date") and home and away:
+            match = candidate
+            break
     if not match:
         stale = get_cached_value(cache_key, allow_expired=True)
         if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return {"error": "Match data incomplete"}
+    fixture = match.get("fixture") or {}
+    teams = match.get("teams") or {}
+    league = match.get("league") or {}
+    status = map_api_football_status((fixture.get("status") or {}).get("short"))
     payload = {
-        "match_id": str(match.get("id")),
-        "utcDate": match.get("utcDate"),
-        "competition": match.get("competition", {}).get("name"),
-        "homeTeam": match.get("homeTeam", {}).get("name"),
-        "awayTeam": match.get("awayTeam", {}).get("name"),
-        "status": match.get("status"),
+        "match_id": str(fixture.get("id")),
+        "utcDate": fixture.get("date"),
+        "competition": league.get("name"),
+        "homeTeam": (teams.get("home") or {}).get("name"),
+        "awayTeam": (teams.get("away") or {}).get("name"),
+        "status": status,
     }
     if is_complete_match_payload(payload):
-        set_cache_value(cache_key, payload, settings.CACHE_TTL_MINUTES, match_id=str(match.get("id", "")))
+        set_cache_value(cache_key, payload, settings.CACHE_TTL_MINUTES, match_id=str(fixture.get("id", "")))
     return {**payload, "stale": False}
 
 
@@ -185,14 +226,23 @@ def get_match_result(match_id):
     cached = get_cached_value(cache_key)
     if cached:
         return cached
-    data = fetch_football_data(f"/matches/{match_id}")
+    data = fetch_api_football("/fixtures", params={"ids": match_id})
     if data.get("error"):
         return data
-    match = data.get("match")
-    if not match:
+    response = data.get("response", [])
+    if not response:
         return {"error": "No match data"}
-    set_cache_value(cache_key, match, settings.CACHE_TTL_MINUTES, match_id=str(match_id))
-    return match
+    match = response[0]
+    fixture = match.get("fixture") or {}
+    status_short = (fixture.get("status") or {}).get("short")
+    status = map_api_football_status(status_short)
+    goals = match.get("goals") or {}
+    normalized = {
+        "status": status,
+        "score": {"fullTime": {"home": goals.get("home"), "away": goals.get("away")}},
+    }
+    set_cache_value(cache_key, normalized, settings.CACHE_TTL_MINUTES, match_id=str(match_id))
+    return normalized
 
 
 def pick_fragment(category):
