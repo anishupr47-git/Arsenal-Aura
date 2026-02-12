@@ -14,18 +14,32 @@ export default function Predictor() {
   const [matchError, setMatchError] = useState("");
   const kickoffMs = match?.utcDate ? new Date(match.utcDate).getTime() : null;
   const kickoffPassed = kickoffMs ? kickoffMs <= Date.now() : false;
-  const canPredict = Boolean(match && match.opponent && match.utcDate && !kickoffPassed);
+  const kickoffValid = kickoffMs && !Number.isNaN(kickoffMs);
+  const canPredict = Boolean(match && match.opponent && match.utcDate && kickoffValid && !kickoffPassed);
 
   useEffect(() => {
     const load = async () => {
       try {
         const next = await apiFetch("/api/fixtures/next", { method: "GET" }, accessToken);
         if (next?.unavailable || !next?.utcDate || !next?.opponent) {
-          setMatch(null);
-          setMatchError(next?.detail || "Match data unavailable.");
+          const cached = localStorage.getItem("arsenalNextMatch");
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed?.utcDate && parsed?.opponent) {
+              setMatch({ ...parsed, stale: true });
+              setMatchError("Using cached match data.");
+            } else {
+              setMatch(null);
+              setMatchError(next?.detail || "Match data unavailable.");
+            }
+          } else {
+            setMatch(null);
+            setMatchError(next?.detail || "Match data unavailable.");
+          }
         } else {
           setMatch(next);
           setMatchError("");
+          localStorage.setItem("arsenalNextMatch", JSON.stringify(next));
         }
         const latest = await apiFetch("/api/predictions/latest", { method: "GET" }, accessToken);
         if (latest?.id) {
