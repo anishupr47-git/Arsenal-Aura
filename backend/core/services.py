@@ -166,9 +166,9 @@ def get_next_match():
     now = timezone.now()
     season = now.year if now.month >= 7 else now.year - 1
     attempts = [
-        {"team": team_id, "next": 10},
+        {"team": team_id, "status": "NS", "season": season, "league": 39},
+        {"team": team_id, "season": season, "league": 39},
         {"team": team_id, "status": "NS"},
-        {"team": team_id, "status": "NS", "season": season},
     ]
     data = None
     for params in attempts:
