@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
 from rest_framework.views import APIView
@@ -63,6 +64,29 @@ class RegisterView(APIView):
             samesite="Lax",
         )
         return response
+
+
+class BootstrapAdminView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token") or request.query_params.get("token")
+        if not settings.ADMIN_BOOTSTRAP_TOKEN or token != settings.ADMIN_BOOTSTRAP_TOKEN:
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        email = (settings.ADMIN_BOOTSTRAP_EMAIL or request.data.get("email") or "").lower()
+        password = settings.ADMIN_BOOTSTRAP_PASSWORD or request.data.get("password")
+        if not email or not password:
+            return Response({"detail": "Email and password required."}, status=status.HTTP_400_BAD_REQUEST)
+        user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
+        user.email = email
+        user.username = email
+        user.is_staff = True
+        user.is_superuser = True
+        user.set_password(password)
+        user.save()
+        Profile.objects.get_or_create(user=user, defaults={"favorite_club": "Arsenal", "banter_mode": False})
+        UserStats.objects.get_or_create(user=user)
+        return Response({"ok": True})
 
 
 class LoginView(APIView):
