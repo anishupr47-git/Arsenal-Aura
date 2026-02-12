@@ -36,6 +36,16 @@ def set_cache_value(cache_key, payload, ttl_minutes, match_id=""):
         expires_at=expires_at,
     )
 
+def is_complete_match_payload(payload):
+    if not payload:
+        return False
+    required = ["match_id", "utcDate", "homeTeam", "awayTeam"]
+    for key in required:
+        value = payload.get(key)
+        if not value:
+            return False
+    return True
+
 
 def fetch_football_data(path, params=None):
     if not settings.FOOTBALL_DATA_API_KEY:
@@ -107,28 +117,40 @@ def get_arsenal_team_id():
 def get_next_match():
     cache_key = "arsenal_next_match"
     cached = get_cached_value(cache_key)
-    if cached:
+    if cached and is_complete_match_payload(cached):
         return {**cached, "stale": False}
     team_id = get_arsenal_team_id()
     if not team_id:
         stale = get_cached_value(cache_key, allow_expired=True)
-        if stale:
+        if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return {"error": "Could not find Arsenal team id"}
     data = fetch_football_data(f"/teams/{team_id}/matches", params={"status": "SCHEDULED", "limit": 10})
     if data.get("error"):
         stale = get_cached_value(cache_key, allow_expired=True)
-        if stale:
+        if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return data
     matches = data.get("matches", [])
     if not matches:
         stale = get_cached_value(cache_key, allow_expired=True)
-        if stale:
+        if stale and is_complete_match_payload(stale):
             return {**stale, "stale": True}
         return {"error": "No scheduled matches found"}
     matches_sorted = sorted(matches, key=lambda m: m.get("utcDate") or "")
-    match = matches_sorted[0]
+    match = None
+    for candidate in matches_sorted:
+        if candidate.get("id") and candidate.get("utcDate"):
+            home_name = candidate.get("homeTeam", {}).get("name")
+            away_name = candidate.get("awayTeam", {}).get("name")
+            if home_name and away_name:
+                match = candidate
+                break
+    if not match:
+        stale = get_cached_value(cache_key, allow_expired=True)
+        if stale and is_complete_match_payload(stale):
+            return {**stale, "stale": True}
+        return {"error": "Match data incomplete"}
     payload = {
         "match_id": str(match.get("id")),
         "utcDate": match.get("utcDate"),
@@ -137,7 +159,8 @@ def get_next_match():
         "awayTeam": match.get("awayTeam", {}).get("name"),
         "status": match.get("status"),
     }
-    set_cache_value(cache_key, payload, settings.CACHE_TTL_MINUTES, match_id=str(match.get("id", "")))
+    if is_complete_match_payload(payload):
+        set_cache_value(cache_key, payload, settings.CACHE_TTL_MINUTES, match_id=str(match.get("id", "")))
     return {**payload, "stale": False}
 
 
