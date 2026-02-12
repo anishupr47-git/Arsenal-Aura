@@ -99,6 +99,13 @@ def get_arsenal_team_id():
     cached = get_cached_value(cache_key)
     if cached:
         return cached.get("team_id")
+    if settings.ARSENAL_TEAM_ID:
+        try:
+            team_id = int(settings.ARSENAL_TEAM_ID)
+            set_cache_value(cache_key, {"team_id": team_id}, settings.CACHE_TTL_MINUTES)
+            return team_id
+        except ValueError:
+            pass
     data = fetch_football_data("/competitions/PL/teams")
     if data.get("error"):
         stale = get_cached_value(cache_key, allow_expired=True)
@@ -106,7 +113,16 @@ def get_arsenal_team_id():
             return stale.get("team_id")
         return None
     teams = data.get("teams", [])
-    arsenal = next((t for t in teams if t.get("name") == "Arsenal FC"), None)
+    arsenal = next(
+        (
+            t
+            for t in teams
+            if t.get("name") == "Arsenal FC"
+            or (t.get("name") and "Arsenal" in t.get("name"))
+            or t.get("shortName") == "Arsenal"
+        ),
+        None,
+    )
     if not arsenal:
         return None
     team_id = arsenal.get("id")

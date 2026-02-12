@@ -119,3 +119,4 @@ if DEBUG and not CSRF_TRUSTED_ORIGINS:
 FOOTBALL_DATA_API_KEY = os.environ.get("FOOTBALL_DATA_API_KEY", "")
 SPORTS_DB_API_KEY = os.environ.get("SPORTS_DB_API_KEY", "")
 CACHE_TTL_MINUTES = int(os.environ.get("CACHE_TTL_MINUTES", "10"))
+ARSENAL_TEAM_ID = os.environ.get("ARSENAL_TEAM_ID", "")
