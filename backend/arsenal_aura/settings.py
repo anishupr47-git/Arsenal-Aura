@@ -116,8 +116,7 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS"
 if DEBUG and not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
-API_FOOTBALL_KEY = os.environ.get("API_FOOTBALL_KEY", "")
-API_FOOTBALL_BASE_URL = os.environ.get("API_FOOTBALL_BASE_URL", "https://v3.football.api-sports.io")
+FOOTBALL_DATA_API_KEY = os.environ.get("FOOTBALL_DATA_API_KEY", "")
 SPORTS_DB_API_KEY = os.environ.get("SPORTS_DB_API_KEY", "")
 CACHE_TTL_MINUTES = int(os.environ.get("CACHE_TTL_MINUTES", "10"))
 ARSENAL_TEAM_ID = os.environ.get("ARSENAL_TEAM_ID", "")
